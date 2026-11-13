@@ -1,0 +1,103 @@
+===== PLAN Q8 =====
+                                                               QUERY PLAN                                                                
+-----------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop Left Join  (cost=4.60..28.69 rows=2 width=28) (actual time=0.127..0.130 rows=1 loops=1)
+   Buffers: shared hit=4 read=2
+   ->  Bitmap Heap Scan on loan_applications a  (cost=4.31..12.07 rows=2 width=18) (actual time=0.071..0.072 rows=1 loops=1)
+         Recheck Cond: (customer_id = 4242)
+         Heap Blocks: exact=1
+         Buffers: shared hit=1 read=2
+         ->  Bitmap Index Scan on idx_applications_customer  (cost=0.00..4.31 rows=2 width=0) (actual time=0.054..0.054 rows=1 loops=1)
+               Index Cond: (customer_id = 4242)
+               Buffers: shared read=2
+   ->  Index Scan using loans_application_id_key on loans l  (cost=0.29..8.31 rows=1 width=14) (actual time=0.049..0.049 rows=1 loops=1)
+         Index Cond: (application_id = a.application_id)
+         Buffers: shared hit=3
+ Planning:
+   Buffers: shared hit=224 read=1
+ Planning Time: 2.605 ms
+ Execution Time: 0.323 ms
+(16 rows)
+
+===== PLAN Q1 =====
+                                                                                    QUERY PLAN                                                                                     
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Limit  (cost=8988.90..9032.55 rows=50 width=48) (actual time=59.512..73.676 rows=50 loops=1)
+   Buffers: shared hit=2737 read=42
+   ->  Nested Loop  (cost=8988.90..83840.52 rows=85748 width=48) (actual time=59.509..73.650 rows=50 loops=1)
+         Buffers: shared hit=2737 read=42
+         ->  Nested Loop  (cost=8988.60..64773.97 rows=85748 width=22) (actual time=59.472..72.335 rows=50 loops=1)
+               Buffers: shared hit=2587 read=42
+               ->  Nested Loop  (cost=8988.30..38878.24 rows=85748 width=22) (actual time=59.438..71.257 rows=50 loops=1)
+                     Buffers: shared hit=2437 read=42
+                     ->  Gather Merge  (cost=8988.00..18974.77 rows=85748 width=18) (actual time=59.338..69.732 rows=50 loops=1)
+                           Workers Planned: 2
+                           Workers Launched: 2
+                           Buffers: shared hit=2287 read=42
+                           ->  Sort  (cost=7987.98..8077.30 rows=35728 width=18) (actual time=50.033..50.238 rows=922 loops=3)
+                                 Sort Key: ((CURRENT_DATE - rs.due_date)) DESC
+                                 Sort Method: quicksort  Memory: 894kB
+                                 Buffers: shared hit=2287 read=42
+                                 Worker 0:  Sort Method: quicksort  Memory: 1749kB
+                                 Worker 1:  Sort Method: quicksort  Memory: 974kB
+                                 ->  Parallel Bitmap Heap Scan on repayment_schedule rs  (cost=996.84..5286.09 rows=35728 width=18) (actual time=4.322..28.190 rows=14499 loops=3)
+                                       Recheck Cond: ((due_date < CURRENT_DATE) AND ((status)::text = 'PENDING'::text))
+                                       Heap Blocks: exact=554
+                                       Buffers: shared hit=2273 read=42
+                                       ->  Bitmap Index Scan on idx_schedule_pending_due  (cost=0.00..975.40 rows=85748 width=0) (actual time=10.374..10.375 rows=43496 loops=1)
+                                             Index Cond: (due_date < CURRENT_DATE)
+                                             Buffers: shared read=42
+                     ->  Memoize  (cost=0.30..0.39 rows=1 width=8) (actual time=0.029..0.029 rows=1 loops=50)
+                           Cache Key: rs.loan_id
+                           Cache Mode: logical
+                           Hits: 0  Misses: 50  Evictions: 0  Overflows: 0  Memory Usage: 6kB
+                           Buffers: shared hit=150
+                           ->  Index Scan using loans_pkey on loans l  (cost=0.29..0.38 rows=1 width=8) (actual time=0.026..0.026 rows=1 loops=50)
+                                 Index Cond: (loan_id = rs.loan_id)
+                                 Buffers: shared hit=150
+               ->  Memoize  (cost=0.30..0.41 rows=1 width=8) (actual time=0.020..0.020 rows=1 loops=50)
+                     Cache Key: l.application_id
+                     Cache Mode: logical
+                     Hits: 0  Misses: 50  Evictions: 0  Overflows: 0  Memory Usage: 6kB
+                     Buffers: shared hit=150
+                     ->  Index Scan using loan_applications_pkey on loan_applications a  (cost=0.29..0.40 rows=1 width=8) (actual time=0.017..0.017 rows=1 loops=50)
+                           Index Cond: (application_id = l.application_id)
+                           Buffers: shared hit=150
+         ->  Memoize  (cost=0.30..0.36 rows=1 width=30) (actual time=0.024..0.024 rows=1 loops=50)
+               Cache Key: a.customer_id
+               Cache Mode: logical
+               Hits: 0  Misses: 50  Evictions: 0  Overflows: 0  Memory Usage: 7kB
+               Buffers: shared hit=150
+               ->  Index Scan using customers_pkey on customers c  (cost=0.29..0.35 rows=1 width=30) (actual time=0.021..0.021 rows=1 loops=50)
+                     Index Cond: (customer_id = a.customer_id)
+                     Buffers: shared hit=150
+ Planning:
+   Buffers: shared hit=217 read=9
+ Planning Time: 4.429 ms
+ Execution Time: 89.364 ms
+(53 rows)
+
+===== PLAN Q5 =====
+                                                                     QUERY PLAN                                                                     
+----------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=14.05..14.06 rows=4 width=54) (actual time=0.251..0.258 rows=5 loops=1)
+   Sort Key: ((paid_at)::date)
+   Sort Method: quicksort  Memory: 25kB
+   Buffers: shared hit=7 read=3
+   ->  WindowAgg  (cost=3.76..14.01 rows=4 width=54) (actual time=0.179..0.205 rows=5 loops=1)
+         Buffers: shared hit=4 read=3
+         ->  Incremental Sort  (cost=3.76..13.93 rows=4 width=18) (actual time=0.137..0.142 rows=5 loops=1)
+               Sort Key: paid_at, repayment_id
+               Presorted Key: paid_at
+               Full-sort Groups: 1  Sort Method: quicksort  Average Memory: 25kB  Peak Memory: 25kB
+               Buffers: shared hit=4 read=3
+               ->  Index Scan using idx_repayments_loan on repayments  (cost=0.42..13.75 rows=4 width=18) (actual time=0.100..0.109 rows=5 loops=1)
+                     Index Cond: (loan_id = 1)
+                     Filter: ((status)::text = 'SUCCESS'::text)
+                     Buffers: shared hit=1 read=3
+ Planning:
+   Buffers: shared hit=91 read=1
+ Planning Time: 1.227 ms
+ Execution Time: 0.380 ms
+(19 rows)
+
