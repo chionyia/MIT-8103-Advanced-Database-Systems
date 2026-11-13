@@ -1,0 +1,33 @@
+# Local stack for Portfolios 1-4.  Portfolio 5 has its own compose files.
+services:
+  postgres:
+    image: postgres:16
+    container_name: ifl-postgres
+    environment:
+      POSTGRES_USER: ifl
+      POSTGRES_PASSWORD: ifl_pass
+      POSTGRES_DB: ifl
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+
+  mongo:
+    image: mongo:7
+    container_name: ifl-mongo
+    ports: ["27017:27017"]
+    volumes: [mongodata:/data/db]
+
+  neo4j:
+    image: neo4j:5
+    container_name: ifl-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/ifl_pass_123
+    ports: ["7474:7474", "7687:7687"]
+
+  redis:
+    image: redis:7
+    container_name: ifl-redis
+    ports: ["6379:6379"]
+
+volumes:
+  pgdata:
+  mongodata:
