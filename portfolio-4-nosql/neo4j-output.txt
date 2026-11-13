@@ -1,0 +1,9 @@
+g.name
+"Emeka Okafor"
+"Fatima Yusuf"
+exposed_guarantor, defaulted_loan, l.amount
+"Tunde Adeyemi", "L2", 50000
+borrower_at_risk, guarantor_in_default
+"Tunde Adeyemi", "Fatima Yusuf"
+a.name, b.name
+"Tunde Adeyemi", "Fatima Yusuf"

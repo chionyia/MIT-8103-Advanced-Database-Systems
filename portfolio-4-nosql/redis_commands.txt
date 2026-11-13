@@ -1,0 +1,25 @@
+# Key-value use cases in InterestFree Lend. Run: docker compose exec redis redis-cli
+# Then paste commands one by one and screenshot.
+
+# 1. Repayment reminder cache (auto-expires after 24h)
+SET reminder:loan:1:due "2026-12-01" EX 86400
+GET reminder:loan:1:due
+TTL reminder:loan:1:due
+
+# 2. Customer session / OTP (short TTL for security)
+SET otp:08030000001 "482913" EX 300
+GET otp:08030000001
+
+# 3. Cache of a loan summary as a hash (avoids hitting PostgreSQL on every app screen)
+HSET loan:1 principal 100000 outstanding 83333.33 status ACTIVE next_due "2026-12-01"
+HGETALL loan:1
+HINCRBYFLOAT loan:1 outstanding -16666.67
+
+# 4. Rate-limit loan applications per customer (max 3 per hour)
+INCR ratelimit:apply:1
+EXPIRE ratelimit:apply:1 3600
+GET ratelimit:apply:1
+
+# 5. Leaderboard-style ranking: customers by on-time repayment streak
+ZADD ontime_streak 12 "Tunde" 7 "Fatima" 15 "Emeka"
+ZREVRANGE ontime_streak 0 2 WITHSCORES

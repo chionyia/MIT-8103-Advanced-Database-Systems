@@ -1,0 +1,191 @@
+test> 
+test> 
+test> 
+test> 
+test> 
+test> 
+test> ifl
+ifl> true
+ifl> 
+ifl> | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | | {
+  acknowledged: true,
+  insertedIds: { '0': 'APP-1001', '1': 'APP-1002', '2': 'APP-1003', '3': 'APP-1004' }
+}
+ifl> 
+ifl> --- Q1: retrieve one full application (single read, no joins) ---
+
+ifl> {
+  _id: 'APP-1001',
+  customer: {
+    id: 1,
+    name: 'Tunde Adeyemi',
+    phone: '08030000001',
+    region: 'West'
+  },
+  product: 'Micro Trader Loan',
+  requestedAmount: 100000,
+  tenorMonths: 6,
+  status: 'APPROVED',
+  kyc: {
+    nationalId: 'NIN0000001',
+    verified: true,
+    documents: [
+      {
+        type: 'ID_CARD',
+        file: 'tunde_id.jpg'
+      },
+      {
+        type: 'UTILITY_BILL',
+        file: 'tunde_bill.pdf'
+      }
+    ]
+  },
+  business: {
+    type: 'Provision store',
+    monthlyRevenue: 250000,
+    location: 'Ibadan'
+  },
+  guarantors: [
+    {
+      customerId: 2,
+      name: 'Fatima Yusuf'
+    },
+    {
+      customerId: 3,
+      name: 'Emeka Okafor'
+    }
+  ],
+  statusHistory: [
+    {
+      status: 'PENDING',
+      at: ISODate('2026-11-01T09:00:00.000Z')
+    },
+    {
+      status: 'APPROVED',
+      at: ISODate('2026-11-02T14:30:00.000Z'),
+      by: 'Amina Bello'
+    }
+  ],
+  tags: [
+    'trader',
+    'repeat-customer'
+  ]
+}
+
+ifl> 
+ifl> --- Q2: approved applications in West or North above 40k ---
+
+ifl> | | [
+  {
+    _id: 'APP-1001',
+    customer: {
+      name: 'Tunde Adeyemi'
+    },
+    product: 'Micro Trader Loan',
+    requestedAmount: 100000
+  },
+  {
+    _id: 'APP-1002',
+    customer: {
+      name: 'Fatima Yusuf'
+    },
+    product: 'Micro Trader Loan',
+    requestedAmount: 50000
+  }
+]
+
+ifl> 
+ifl> --- Q3: applications guaranteed by customer 1 (query inside an embedded array) ---
+
+ifl> [
+  {
+    _id: 'APP-1002',
+    customer: {
+      name: 'Fatima Yusuf'
+    }
+  }
+]
+
+ifl> 
+ifl> --- Q4: schema flexibility: only education loans have an "education" sub-document ---
+
+ifl> [
+  {
+    _id: 'APP-1003',
+    education: {
+      institution: 'University of Nigeria',
+      admissionLetter: 'emeka_admission.pdf',
+      feesDue: 200000
+    }
+  }
+]
+
+ifl> 
+ifl> --- Q5: aggregation: total requested per product and status ---
+
+ifl> | | | [
+  {
+    _id: {
+      product: 'Education Support',
+      status: 'PENDING'
+    },
+    total: 200000,
+    count: 1
+  },
+  {
+    _id: {
+      product: 'Micro Trader Loan',
+      status: 'APPROVED'
+    },
+    total: 150000,
+    count: 2
+  },
+  {
+    _id: {
+      product: 'Emergency Relief',
+      status: 'REJECTED'
+    },
+    total: 40000,
+    count: 1
+  }
+]
+
+ifl> 
+ifl> --- Q6: update: append status history and change status atomically (single-document atomicity) ---
+
+ifl> | | | {
+  acknowledged: true,
+  insertedId: null,
+  matchedCount: 1,
+  modifiedCount: 1,
+  upsertedCount: 0
+}
+ifl> {
+  _id: 'APP-1003',
+  status: 'APPROVED',
+  statusHistory: [
+    {
+      status: 'PENDING',
+      at: ISODate('2026-11-09T08:00:00.000Z')
+    },
+    {
+      status: 'APPROVED',
+      at: ISODate('2026-11-11T09:03:46.973Z'),
+      by: 'Amina Bello'
+    }
+  ]
+}
+
+ifl> 
+ifl> --- Indexing + explain ---
+
+ifl> status_1_customer.region_1
+ifl> guarantors.customerId_1
+ifl> 
+ifl> | {
+  stage: 'FETCH',
+  docsExamined: 1,
+  returned: 1
+}
+
+ifl> 
