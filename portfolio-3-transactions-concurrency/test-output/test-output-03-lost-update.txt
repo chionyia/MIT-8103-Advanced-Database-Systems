@@ -1,0 +1,23 @@
+### test-output 03: lost update and fixes  (2026-11-13 09:02:24 UTC)
+
+=== PART 1: THE PROBLEM (read-then-write)  expected final = 4850000 ===
+[A] read balance|5000000.00
+[A] 
+[B] read balance|5000000.00
+[B] 
+FINAL balance: 4950000.00   <-- LOST UPDATE (A's 100000 vanished)
+
+=== PART 2: FIX 1, SELECT ... FOR UPDATE ===
+[A] read (locks row)|5000000.00
+[A] 
+[B] read (waited for A)|4900000.00
+FINAL balance: 4850000.00   <-- correct
+
+=== PART 3: FIX 2, atomic update (no read) ===
+FINAL balance: 4850000.00   <-- correct
+
+=== PART 4: FIX 3, REPEATABLE READ detects the conflict ===
+[A] A snapshot|5000000.00
+[B] B snapshot|5000000.00
+[B] ERROR:  could not serialize access due to concurrent update
+FINAL balance: 4900000.00   <-- B aborted, must retry

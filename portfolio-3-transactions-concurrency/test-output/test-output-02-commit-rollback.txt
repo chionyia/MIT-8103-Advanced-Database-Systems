@@ -1,0 +1,93 @@
+### test-output 02: COMMIT, ROLLBACK, SAVEPOINT  (2026-11-13 09:02:24 UTC, PostgreSQL 16)
+--- BEFORE ---
+ pool_id |  balance   
+---------+------------
+       1 | 5000000.00
+       2 |    1000.00
+(2 rows)
+
+ application_id |  status  
+----------------+----------
+              1 | APPROVED
+              2 | APPROVED
+(2 rows)
+
+BEGIN
+ new_loan_id 
+-------------
+           1
+(1 row)
+
+--- inside transaction (visible to this session only) ---
+ pool_id |  balance   
+---------+------------
+       1 | 4900000.00
+(1 row)
+
+COMMIT
+--- AFTER COMMIT: loan, schedule, ledger exist, pool debited ---
+ pool_id |  balance   
+---------+------------
+       1 | 4900000.00
+(1 row)
+
+ loan_id | principal | outstanding_balance 
+---------+-----------+---------------------
+       1 | 100000.00 |           100000.00
+(1 row)
+
+ installment_no |  due_date  | amount_due 
+----------------+------------+------------
+              1 | 2026-12-13 |   16666.67
+              2 | 2027-01-12 |   16666.67
+              3 | 2027-02-11 |   16666.67
+              4 | 2027-03-13 |   16666.67
+              5 | 2027-04-12 |   16666.67
+              6 | 2027-05-12 |   16666.65
+(6 rows)
+
+  entry_type  | direction |  amount   
+--------------+-----------+-----------
+ DISBURSEMENT | DEBIT     | 100000.00
+(1 row)
+
+BEGIN
+ERROR:  new row for relation "fund_pool" violates check constraint "fund_pool_balance_check"
+DETAIL:  Failing row contains (2, Emergency Fund, -49000.00).
+CONTEXT:  SQL statement "UPDATE fund_pool SET balance = balance - v_app.requested_amount WHERE pool_id = p_pool_id"
+PL/pgSQL function disburse_loan(integer,integer) line 19 at SQL statement
+ROLLBACK
+--- AFTER ROLLBACK: nothing changed for application 2 / pool 2 ---
+ pool_id | balance 
+---------+---------
+       2 | 1000.00
+(1 row)
+
+ application_id |  status  
+----------------+----------
+              2 | APPROVED
+(1 row)
+
+ loans_for_app2 
+----------------
+              0
+(1 row)
+
+BEGIN
+UPDATE 1
+INSERT 0 1
+SAVEPOINT
+UPDATE 1
+ROLLBACK
+COMMIT
+ pool_id |  balance   
+---------+------------
+       1 | 5400000.00
+(1 row)
+
+ pool_id |  balance   |  donated   | disbursed 
+---------+------------+------------+-----------
+       2 |    1000.00 |    1000.00 |         0
+       1 | 5400000.00 | 5500000.00 | 100000.00
+(2 rows)
+

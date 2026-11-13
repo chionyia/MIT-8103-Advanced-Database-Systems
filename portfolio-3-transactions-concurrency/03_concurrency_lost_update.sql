@@ -1,0 +1,41 @@
+-- LOST UPDATE demo. Needs TWO psql terminals (Session A and Session B) open at once:
+--   docker compose exec postgres psql -U ifl -d ifl
+-- Execute the numbered steps in the order shown, switching terminals. Screenshot both.
+-- Reset first:  UPDATE fund_pool SET balance = 5000000 WHERE pool_id = 1;
+
+-- ################ PART 1: THE PROBLEM (read-then-write in application code) ################
+-- Step 1  [A]  BEGIN;
+-- Step 2  [A]  SELECT balance FROM fund_pool WHERE pool_id = 1;     -- sees 5,000,000
+-- Step 3  [B]  BEGIN;
+-- Step 4  [B]  SELECT balance FROM fund_pool WHERE pool_id = 1;     -- also sees 5,000,000
+-- Step 5  [A]  UPDATE fund_pool SET balance = 5000000 - 100000 WHERE pool_id = 1;   -- app computed 4,900,000
+-- Step 6  [A]  COMMIT;
+-- Step 7  [B]  UPDATE fund_pool SET balance = 5000000 - 50000  WHERE pool_id = 1;   -- app computed 4,950,000
+-- Step 8  [B]  COMMIT;
+-- Step 9  [A]  SELECT balance FROM fund_pool WHERE pool_id = 1;
+--              RESULT: 4,950,000. Should be 4,850,000. A's 100,000 disbursement was LOST.
+
+-- ################ PART 2: FIX 1 - pessimistic locking (SELECT ... FOR UPDATE) ################
+-- Reset: UPDATE fund_pool SET balance = 5000000 WHERE pool_id = 1;
+-- Step 1  [A]  BEGIN;
+-- Step 2  [A]  SELECT balance FROM fund_pool WHERE pool_id = 1 FOR UPDATE;   -- 5,000,000 and row is locked
+-- Step 3  [B]  BEGIN;
+-- Step 4  [B]  SELECT balance FROM fund_pool WHERE pool_id = 1 FOR UPDATE;   -- BLOCKS, waiting for A
+-- Step 5  [A]  UPDATE fund_pool SET balance = balance - 100000 WHERE pool_id = 1;
+-- Step 6  [A]  COMMIT;                                                       -- B unblocks, now sees 4,900,000
+-- Step 7  [B]  UPDATE fund_pool SET balance = balance - 50000 WHERE pool_id = 1;
+-- Step 8  [B]  COMMIT;
+-- Step 9  [A]  SELECT balance ...;  RESULT: 4,850,000  (correct)
+
+-- ################ PART 3: FIX 2 - atomic update (no read needed) ################
+-- UPDATE fund_pool SET balance = balance - 100000 WHERE pool_id = 1;
+-- Postgres re-evaluates "balance - x" on the latest committed row version, so both updates apply.
+
+-- ################ PART 4: FIX 3 - REPEATABLE READ detects the conflict ################
+-- Reset balance.
+-- Step 1  [A]  BEGIN ISOLATION LEVEL REPEATABLE READ;  SELECT balance FROM fund_pool WHERE pool_id = 1;
+-- Step 2  [B]  BEGIN ISOLATION LEVEL REPEATABLE READ;  SELECT balance FROM fund_pool WHERE pool_id = 1;
+-- Step 3  [A]  UPDATE fund_pool SET balance = balance - 100000 WHERE pool_id = 1;  COMMIT;
+-- Step 4  [B]  UPDATE fund_pool SET balance = balance - 50000  WHERE pool_id = 1;
+--              ERROR: could not serialize access due to concurrent update
+-- Step 5  [B]  ROLLBACK;   -- application must RETRY the transaction

@@ -1,0 +1,19 @@
+### test-output 04: isolation levels and deadlock  (2026-11-13 09:02:45 UTC)
+
+=== READ COMMITTED ===
+[A] first read |0
+[A] second read|16666.67
+[B] inserted and committed a 16666.67 repayment
+
+=== REPEATABLE READ ===
+[A] first read |0
+[A] second read|0
+[B] inserted and committed a 16666.67 repayment
+
+=== DEADLOCK (opposite lock order) ===
+[A] ERROR:  deadlock detected
+[A] DETAIL:  Process 484 waits for ShareLock on transaction 838; blocked by process 491.
+[A] Process 491 waits for ShareLock on transaction 837; blocked by process 484.
+[A] HINT:  See server log for query details.
+[A] CONTEXT:  while updating tuple (0,2) in relation "fund_pool"
+(one session was aborted by the deadlock detector, the other committed)
