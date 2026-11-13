@@ -1,0 +1,17 @@
+# MongoDB 3-node replica set (1 primary + 2 secondaries) for availability / failover demo
+services:
+  mongo1:
+    image: mongo:7
+    container_name: ifl-mongo1
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports: ["27011:27017"]
+  mongo2:
+    image: mongo:7
+    container_name: ifl-mongo2
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports: ["27012:27017"]
+  mongo3:
+    image: mongo:7
+    container_name: ifl-mongo3
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports: ["27013:27017"]

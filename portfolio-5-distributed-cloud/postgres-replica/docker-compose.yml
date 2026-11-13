@@ -1,0 +1,40 @@
+# PostgreSQL streaming replication: 1 primary (read/write) + 1 hot-standby replica (read-only)
+# Ports 5433 / 5434 so it does not clash with the main stack on 5432.
+services:
+  pg-primary:
+    image: postgres:16
+    container_name: ifl-pg-primary
+    environment:
+      POSTGRES_USER: ifl
+      POSTGRES_PASSWORD: ifl_pass
+      POSTGRES_DB: ifl
+    ports: ["5433:5432"]
+    volumes:
+      - primary_data:/var/lib/postgresql/data
+      - ./init-primary.sh:/docker-entrypoint-initdb.d/init-primary.sh:ro
+    command: ["postgres", "-c", "wal_level=replica", "-c", "max_wal_senders=5", "-c", "hot_standby=on"]
+
+  pg-replica:
+    image: postgres:16
+    container_name: ifl-pg-replica
+    user: postgres
+    depends_on: [pg-primary]
+    environment:
+      PGPASSWORD: repl_pass
+    ports: ["5434:5432"]
+    volumes:
+      - replica_data:/var/lib/postgresql/data
+    entrypoint: ["bash", "-c"]
+    command:
+      - |
+        if [ ! -s /var/lib/postgresql/data/PG_VERSION ]; then
+          until pg_basebackup -h pg-primary -U replicator -D /var/lib/postgresql/data -Fp -Xs -R -P; do
+            echo "waiting for primary..."; sleep 2
+          done
+        fi
+        chmod 700 /var/lib/postgresql/data
+        exec postgres
+
+volumes:
+  primary_data:
+  replica_data:
