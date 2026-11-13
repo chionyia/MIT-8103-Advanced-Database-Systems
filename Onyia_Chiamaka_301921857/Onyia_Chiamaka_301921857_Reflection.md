@@ -1,0 +1,15 @@
+# Individual Technical Reflection
+
+**Case study:** InterestFree Lend, a simulated interest-free loan platform.
+
+I picked an interest-free lender because it gave me a business rule I could actually design around. With no interest, the schedule is just the principal split into equal instalments, so I left interest columns out of the schema completely. The thing that mattered more was the fund pool. Every loan takes money out of a shared pool, and that is what made the transactions and concurrency work in Portfolio 3 feel real instead of made up.
+
+**Design choices.** I kept applications and loans in separate tables because an application can be rejected and never become a loan, and I linked them one to one with a unique key. I let the database protect the money itself with `CHECK (balance >= 0)` on the fund pool. That check is what stopped a 50,000 disbursement from a pool holding 1,000 and made the whole transaction roll back cleanly. I also kept `outstanding_balance` on the loan even though it can be worked out from the schedule. It is a small duplication, but I only ever change it inside a transaction, and I would rather read one column than add up rows on every screen.
+
+**Query work.** The biggest surprise was Q1. Q8 and Q5 went from 14.9 ms to 0.32 ms and from 31.5 ms to 0.38 ms once I added indexes on the foreign key columns, which is what I expected. But Q1 only went from 112 ms to 89 ms. The partial index was used, yet the query still sorts around 86,000 overdue rows to return 50, and an index does not remove that sort. That taught me to read the plan instead of assuming an index fixes everything.
+
+**Concurrency.** Seeing the lost update happen was the clearest lesson in the course for me. Two sessions read the same balance, and one disbursement of 100,000 just vanished, leaving 4,950,000 instead of 4,850,000. The fix that surprised me was that `balance = balance - x` in one statement is already safe, while the same logic done as read-then-write is not. I also ran into a real mistake of my own while testing: the pool balance was still 5,400,000 from the earlier disbursement and savepoint demo, not the 5,000,000 the steps assume, with both of my sessions already inside open transactions. The numbers would not have matched until I rolled back and reset the balance.
+
+**NoSQL and distributed.** Mongo fits the loan applications because education and trader loans carry different details. Neo4j made the guarantor questions much shorter than the SQL would have been. Redis returned a float rounding error on a money value, which is why I would keep balances in PostgreSQL only. For replication, the replica copied the data, refused writes, and showed `streaming` with matching LSNs. The MongoDB failover test showed me why majority write concern matters, because the data survived the primary being stopped.
+
+**What I would do next.** Partition the repayment tables by date, sync changes from PostgreSQL into MongoDB instead of loading both by hand, and add backups with point-in-time recovery.
